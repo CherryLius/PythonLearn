@@ -189,7 +189,7 @@ print(re.split(r'[\s,;]+', 'a,b;; c  d'))
 # 分组
 # 除了简单地判断是否匹配之外，正则表达式还有提取子串的强大功能。用()表示的就是要提取的分组（Group）。比如
 # ^(\d{3})-(\d{3,8})$分别定义了两个组，可以直接从匹配的字符串中提取出区号和本地号码
-m = re.match(r'^(\d{3})-(\d{3,8})','010-123456')
+m = re.match(r'^(\d{3})-(\d{3,8})', '010-123456')
 print(m.group(0))
 print(m.group(1))
 print(m.group(2))
@@ -198,3 +198,92 @@ print(m.group(2))
 # 提取子串非常有用。来看一个更凶残的例子：
 t = '19:05:30'
 m = re.match(r'^([0-1]?[0-9]|2[0-3]):([0-5]?[0-9]):([0-5]?[0-9])$', t)
+print(m.groups())
+# 贪婪匹配
+# 最后需要特别指出的是，正则匹配默认是贪婪匹配，也就是匹配尽可能多的字符。举例如下，匹配出数字后面的0：
+print(re.match(r'^(\d+)(0*)$', '102300').groups())
+# 由于\d+采用贪婪匹配，直接把后面的0全部匹配了，结果0*只能匹配空字符串了。
+# 必须让\d+采用非贪婪匹配（也就是尽可能少匹配），才能把后面的0匹配出来，加个?就可以让\d+采用非贪婪匹配：
+print(re.match(r'^(\d+?)(0*)$', '102300').groups())
+
+# 编译
+# 当我们在Python中使用正则表达式时，re模块内部会干两件事情：
+# 编译正则表达式，如果正则表达式的字符串本身不合法，会报错；
+# 用编译后的正则表达式去匹配字符串。
+# 如果一个正则表达式要重复使用几千次，出于效率的考虑，我们可以预编译该正则表达式，
+# 接下来重复使用时就不需要编译这个步骤了，直接匹配
+re_telephone = re.compile(r'^(\d{3})-(\d{3,8})$')
+print(re_telephone.match('010-1234567').groups())
+print(re_telephone.match('010-8086').groups())
+
+email_1 = 'someone@gmail.com'
+email_2 = 'bill.gates@microsoft.com'
+re_email = re.compile(r'^(\w+.?\w+)@(\w+).(\w+)$')
+print(re_email.match(email_1))
+print(re_email.match(email_2))
+print(re_email.match(email_1).groups())
+print(re_email.match(email_2).groups())
+s = '<Tom Paris> tom@voyager.org'
+m = re.compile(r'^(<.+>)\s+(\w+.?\w+@\w+.\w+)$')
+print(m.match(s).groups())
+
+# datetime
+# 获取当前日期和时间
+# 我们先看如何获取当前日期和时间
+from datetime import datetime
+
+now = datetime.now()
+print(now)
+print(type(now))
+# 注意到datetime是模块，datetime模块还包含一个datetime类，通过from datetime import datetime导入的才是datetime这个类。
+# 如果仅导入import datetime，则必须引用全名datetime.datetime。
+# datetime.now()返回当前日期和时间，其类型是datetime。
+
+# 获取指定日期和时间
+# 要指定某个日期和时间，我们直接用参数构造一个datetime
+dt = datetime(2015, 4, 19, 12, 20)
+print(dt)
+# datetime转换为timestamp
+# 在计算机中，时间实际上是用数字表示的。
+# 我们把1970年1月1日 00:00:00 UTC+00:00时区的时刻称为epoch time，
+# 记为0（1970年以前的时间timestamp为负数），当前时间就是相对于epoch time的秒数，称为timestamp。
+# 你可以认为：
+# timestamp = 0 = 1970-1-1 00:00:00 UTC+0:00
+# 对应的北京时间是：
+# timestamp = 0 = 1970-1-1 08:00:00 UTC+8:00
+# 可见timestamp的值与时区毫无关系，因为timestamp一旦确定，其UTC时间就确定了，
+# 转换到任意时区的时间也是完全确定的，这就是为什么计算机存储的当前时间是以timestamp表示的，
+# 因为全球各地的计算机在任意时刻的timestamp都是完全相同的（假定时间已校准）。
+# 把一个datetime类型转换为timestamp只需要简单调用timestamp()方法
+print(dt.timestamp())
+# 注意Python的timestamp是一个浮点数。如果有小数位，小数位表示毫秒数。
+# 某些编程语言（如Java和JavaScript）的timestamp使用整数表示毫秒数，
+# 这种情况下只需要把timestamp除以1000就得到Python的浮点表示方法
+
+# timestamp转换为datetime
+# 要把timestamp转换为datetime，使用datetime提供的fromtimestamp()方法：
+t = 1429417200.0
+print(datetime.fromtimestamp(t))
+
+# 注意到timestamp是一个浮点数，它没有时区的概念，而datetime是有时区的。上述转换是在timestamp和本地时间做转换。
+# 本地时间是指当前操作系统设定的时区。例如北京时区是东8区，则本地时间：
+# 2015-04-19 12:20:00
+# 实际上就是UTC+8:00时区的时间：
+# 2015-04-19 12:20:00 UTC+8:00
+# 而此刻的格林威治标准时间与北京时间差了8小时，也就是UTC+0:00时区的时间应该是：
+# 2015-04-19 04:20:00 UTC+0:00
+# timestamp也可以直接被转换到UTC标准时区的时间：
+print(datetime.utcfromtimestamp(t))
+
+# str转换为datetime
+# 很多时候，用户输入的日期和时间是字符串，要处理日期和时间，
+# 首先必须把str转换为datetime。转换方法是通过datetime.strptime()实现，需要一个日期和时间的格式化字符串
+cday = datetime.strptime('2015-6-1 18:19:59', '%Y-%m-%d %H:%M:%S')
+print(cday)
+
+# 字符串'%Y-%m-%d %H:%M:%S'规定了日期和时间部分的格式。详细的说明请参考Python文档。
+# 注意转换后的datetime是没有时区信息的
+# datetime转换为str
+# 如果已经有了datetime对象，要把它格式化为字符串显示给用户，就需要转换为str，转换方法是通过strftime()实现的，同样需要一个日期和时间的格式化字符串
+now = datetime.now()
+print(now.strftime('%Y-%m-%d %H:%M:%S'))
