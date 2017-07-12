@@ -168,3 +168,236 @@ for key, group in itertools.groupby('AAABBBCCAAA'):
 for key, group in itertools.groupby('AaAbbBccaaA', lambda c: c.upper()):
     print(key, list(group))
 # itertools模块提供的全部是处理迭代功能的函数，它们的返回值不是list，而是Iterator，只有用for循环迭代的时候才真正计算。
+
+# contextlib
+# 在Python中，读写文件这样的资源要特别注意，必须在使用完毕后正确关闭它们。正确关闭文件资源的一个方法是使用try...finally：
+try:
+    f = open('README.md', 'r')
+    print(f.readline())
+finally:
+    if f:
+        f.close()
+# 写try...finally非常繁琐。Python的with语句允许我们非常方便地使用资源，而不必担心资源没有关闭，所以上面的代码可以简化为：
+with open('README.md', 'r') as f:
+    print(f.readline())
+
+
+# 并不是只有open()函数返回的fp对象才能使用with语句。实际上，任何对象，只要正确实现了上下文管理，就可以用于with语句。
+# 实现上下文管理是通过__enter__和__exit__这两个方法实现的。例如，下面的class实现了这两个方法：
+class Query(object):
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+        print('Begin')
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            print('Error')
+        else:
+            print('End')
+
+    def query(self):
+        print('Query info about %s...' % self.name)
+
+
+# 这样我们就可以把自己写的资源对象用于with语句：
+with Query('Bob') as q:
+    q.query()
+
+# @contextmanager
+# 编写__enter__和__exit__仍然很繁琐，因此Python的标准库contextlib提供了更简单的写法，上面的代码可以改写如下：
+from contextlib import contextmanager
+
+
+class Query(object):
+    def __init__(self, name):
+        self.name = name
+
+    def query(self):
+        print('Query info about %s.' % self.name)
+
+
+@contextmanager
+def create_query(name):
+    print('Begin')
+    q = Query(name)
+    yield q
+    print('End')
+
+
+# @contextmanager这个decorator接受一个generator，
+# 用yield语句把with ... as var把变量输出出去，然后，with语句就可以正常地工作了：
+with create_query('Jack') as q:
+    q.query()
+
+
+# 很多时候，我们希望在某段代码执行前后自动执行特定代码，也可以用@contextmanager实现。例如：
+@contextmanager
+def tag(name):
+    print('<%s>' % name)
+    yield
+    print('</%s>' % name)
+
+
+with tag('h1'):
+    print('Hello')
+    print('World')
+# 代码的执行顺序是：
+# with语句首先执行yield之前的语句，因此打印出<h1>；
+# yield调用会执行with语句内部的所有语句，因此打印出hello和world；
+# 最后执行yield之后的语句，打印出</h1>。
+# 因此，@contextmanager让我们通过编写generator来简化上下文管理。
+# @closing
+# 如果一个对象没有实现上下文，我们就不能把它用于with语句。这个时候，可以用closing()来把该对象变为上下文对象。例如，用with语句使用urlopen()：
+from contextlib import closing
+from urllib.request import urlopen
+
+with closing(urlopen('https://www.python.org')) as page:
+    for line in page:
+        print(line)
+# closing也是一个经过@contextmanager装饰的generator，这个generator编写起来其实非常简单
+# @contextmanager
+# def closing(thing):
+#     try:
+#         yield thing
+#     finally:
+#         thing.close()
+# 它的作用就是把任意对象变为上下文对象，并支持with语句。
+# @contextlib还有一些其他decorator，便于我们编写更简洁的代码。
+
+# XML
+# XML虽然比JSON复杂，在Web中应用也不如以前多了，不过仍有很多地方在用，所以，有必要了解如何操作XML。
+# DOM vs SAX
+# 操作XML有两种方法：DOM和SAX。DOM会把整个XML读入内存，解析为树，因此占用内存大，解析慢，优点是可以任意遍历树的节点。SAX是流模式，边读边解析，占用内存小，解析快，缺点是我们需要自己处理事件。
+# 正常情况下，优先考虑SAX，因为DOM实在太占内存。
+# 在Python中使用SAX解析XML非常简洁，通常我们关心的事件是start_element，end_element和char_data，准备好这3个函数，然后就可以解析xml了。
+# 举个例子，当SAX解析器读到一个节点时：
+
+# <a href="/">python</a>
+
+# 会产生3个事件：
+# start_element事件，在读取<a href="/">时；
+# char_data事件，在读取python时；
+# end_element事件，在读取</a>时。
+
+# 用代码实验一下：
+from xml.parsers.expat import ParserCreate
+
+
+class DefaultSaxHandler(object):
+    def start_element(self, name, attrs):
+        print('sax: start element: %s, attrs: %s' % (name, attrs))
+
+    def end_element(self, name):
+        print('sax: end element: %s' % name)
+
+    def char_data(self, text):
+        print('sax: char data: %s' % text)
+
+
+xml = r'''<?xml version="1.0"?>
+<ol>
+    <li><a href="/python">Python</a></li>
+    <li><a href="/ruby">Ruby</a></li>
+</ol>
+'''
+handler = DefaultSaxHandler()
+parser = ParserCreate()
+parser.StartElementHandler = handler.start_element
+parser.EndElementHandler = handler.end_element
+parser.CharacterDataHandler = handler.char_data
+parser.Parse(xml)
+# 需要注意的是读取一大段字符串时，CharacterDataHandler可能被多次调用，所以需要自己保存起来，在EndElementHandler里面再合并。
+# 除了解析XML外，如何生成XML呢？99%的情况下需要生成的XML结构都是非常简单的，因此，最简单也是最有效的生成XML的方法是拼接字符串：
+# L = []
+# L.append(r'<?xml version="1.0"?>')
+# L.append(r'<root>')
+# L.append(encode('some & data'))
+# L.append(r'</root>')
+# return ''.join(L)
+# 如果要生成复杂的XML呢？建议你不要用XML，改成JSON。
+# 小结
+# 解析XML时，注意找出自己感兴趣的节点，响应事件时，把节点数据保存起来。解析完毕后，就可以处理数据。
+
+data = r'''<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<rss version="2.0" xmlns:yweather="http://xml.weather.yahoo.com/ns/rss/1.0" xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#">
+    <channel>
+        <title>Yahoo! Weather - Beijing, CN</title>
+        <lastBuildDate>Wed, 27 May 2015 11:00 am CST</lastBuildDate>
+        <yweather:location city="Beijing" region="" country="China"/>
+        <yweather:units temperature="C" distance="km" pressure="mb" speed="km/h"/>
+        <yweather:wind chill="28" direction="180" speed="14.48" />
+        <yweather:atmosphere humidity="53" visibility="2.61" pressure="1006.1" rising="0" />
+        <yweather:astronomy sunrise="4:51 am" sunset="7:32 pm"/>
+        <item>
+            <geo:lat>39.91</geo:lat>
+            <geo:long>116.39</geo:long>
+            <pubDate>Wed, 27 May 2015 11:00 am CST</pubDate>
+            <yweather:condition text="Haze" code="21" temp="28" date="Wed, 27 May 2015 11:00 am CST" />
+            <yweather:forecast day="Wed" date="27 May 2015" low="20" high="33" text="Partly Cloudy" code="30" />
+            <yweather:forecast day="Thu" date="28 May 2015" low="21" high="34" text="Sunny" code="32" />
+            <yweather:forecast day="Fri" date="29 May 2015" low="18" high="25" text="AM Showers" code="39" />
+            <yweather:forecast day="Sat" date="30 May 2015" low="18" high="32" text="Sunny" code="32" />
+            <yweather:forecast day="Sun" date="31 May 2015" low="20" high="37" text="Sunny" code="32" />
+        </item>
+    </channel>
+</rss>
+'''
+from xml.parsers.expat import ParserCreate
+
+
+class WeatherSaxHandler(object):
+    def __init__(self):
+        self._dict = {}
+        self._forecast = []
+
+    @property
+    def dict(self):
+        return self._dict
+
+    # @property
+    # def forecast(self):
+    #     return self._forecast
+
+    def start_element(self, name, attrs):
+        print('start: (%s):(%s)' % (name, attrs))
+        if name == 'yweather:location':
+            self._dict.update(attrs)
+        if name == 'yweather:forecast':
+            self._forecast.append(attrs)
+
+    def end_element(self, name):
+        print('end: (%s)' % name)
+        if name == 'rss':
+            self._dict['today'] = self._forecast[0]
+            self._dict['tomorrow'] = self._forecast[1]
+
+    def char_data(self, text):
+        print('char_data: %s' % text)
+        pass
+
+
+def parse_weather(xml):
+    handler = WeatherSaxHandler()
+    parser = ParserCreate()
+    print('parser:', parser)
+    parser.StartElementHandler = handler.start_element
+    parser.EndElementHandler = handler.end_element
+    parser.CharacterDataHandler = handler.char_data
+    parser.Parse(xml)
+    print('location', handler.dict)
+    return handler.dict
+
+
+weather = parse_weather(data)
+assert weather['city'] == 'Beijing', weather['city']
+assert weather['country'] == 'China', weather['country']
+assert weather['today']['text'] == 'Partly Cloudy', weather['today']['text']
+assert weather['today']['low'] == '20', weather['today']['low']
+assert weather['today']['high'] == '33', weather['today']['high']
+assert weather['tomorrow']['text'] == 'Sunny', weather['tomorrow']['text']
+assert weather['tomorrow']['low'] == '21', weather['tomorrow']['low']
+assert weather['tomorrow']['high'] == '34', weather['tomorrow']['high']
+print('Weather:', str(weather))
