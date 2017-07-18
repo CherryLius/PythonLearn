@@ -43,3 +43,32 @@
 # 如果上面的命令安装失败，可以试试另一个驱动：
 # $ pip install mysql-connector
 # 我们演示如何连接到MySQL服务器的test数据库：
+# pip3 install pymysql
+
+# 然后在终端里输入mysql -u root -p进入mysql
+#
+# 输入show databases;(记得加分号)查看数据库
+# 输入create database test;创建数据库
+# 输入use test;使用数据库
+#
+# 然后在python里输入：
+
+import pymysql
+
+conn = pymysql.connect(user='root', password='123456', database='test')
+cursor = conn.cursor()
+cursor.execute('create table user (id varchar(20) primary key, name varchar(20))')
+cursor.execute('insert into user (id, name) values (%s, %s)', ['1', 'Tom'])
+print(cursor.rowcount)
+cursor.close()
+conn.commit()
+
+cursor = conn.cursor()
+cursor.execute('select * from user where id=%s', ('1',))
+values = cursor.fetchall()
+print(values)
+cursor.close()
+conn.close()
+
+# 执行INSERT等操作后要调用commit()提交事务；
+# MySQL的SQL占位符是%s。
