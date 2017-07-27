@@ -1,6 +1,6 @@
-import logging
-import aiomysql
-import asyncio
+import logging, aiomysql, asyncio
+
+__author__ = 'Cherry'
 
 
 def log(sql, args=()):
@@ -20,7 +20,7 @@ def create_pool(loop, **kwargs):
         user=kwargs['user'],
         password=kwargs['password'],
         db=kwargs['db'],
-        charset=kwargs.get('charset', 'utf-8'),
+        charset=kwargs.get('charset', 'utf8'),
         autocommit=kwargs.get('autocommit', True),
         maxsize=kwargs.get('maxsize', 10),
         minsize=kwargs.get('minsize', 1),
@@ -30,21 +30,35 @@ def create_pool(loop, **kwargs):
 
 # Select
 # 要执行SELECT语句，我们用select函数执行，需要传入SQL语句和SQL参数：
-@asyncio.coroutine
-def select(sql, args, size=None):
+async def select(sql, args, size=None):
     log(sql, args)
     global __pool
-    with(yield from __pool) as conn:
-        cur = yield from conn.cursor(aiomysql.DictCursor)
-        yield from cur.execute(sql.replace('?', '%s'), args or ())
-        if size:
-            rs = yield from cur.fetchmany(size)
-        else:
-            rs = yield from cur.fetchall()
-        yield from cur.close()
+    async with __pool.get() as conn:
+        async with conn.cursor(aiomysql.DictCursor) as cur:
+            await cur.execute(sql.replace('?', '%s'), args or ())
+            if size:
+                rs = await cur.fetchmany(size)
+            else:
+                rs = await cur.fetchall()
         logging.info('rows returned: %s' % len(rs))
         return rs
 
+
+#
+# @asyncio.coroutine
+# def select(sql, args, size=None):
+#     log(sql, args)
+#     global __pool
+#     with(yield from __pool) as conn:
+#         cur = yield from conn.cursor(aiomysql.DictCursor)
+#         yield from cur.execute(sql.replace('?', '%s'), args or ())
+#         if size:
+#             rs = yield from cur.fetchmany(size)
+#         else:
+#             rs = yield from cur.fetchall()
+#         yield from cur.close()
+#         logging.info('rows returned: %s' % len(rs))
+#         return rs
 
 # SQL语句的占位符是?，而MySQL的占位符是%s，select()函数在内部自动替换。注意要始终坚持使用带参数的SQL，而不是自己拼接SQL字符串，这样可以防止SQL注入攻击。
 # 注意到yield from将调用一个子协程（也就是在一个协程中调用另一个协程）并直接获得子协程的返回结果。
@@ -52,19 +66,46 @@ def select(sql, args, size=None):
 
 # Insert, Update, Delete
 # 要执行INSERT、UPDATE、DELETE语句，可以定义一个通用的execute()函数，因为这3种SQL的执行都需要相同的参数，以及返回一个整数表示影响的行数：
-@asyncio.coroutine
-def execute(sql, args):
+async def execute(sql, args, autocommit=True):
     log(sql)
-    with (yield from __pool) as conn:
+    async with __pool.get() as conn:
+        if not autocommit:
+            await conn.begin()
         try:
-            cur = yield from conn.cursor()
-            yield from cur.execute(sql.replace('?', '%s'), args)
-            affected = cur.rowcount
-            yield from cur.close()
-        except BaseException as e:
+            async with conn.cursor(aiomysql.DictCursor) as cur:
+                await cur.execute(sql.replace('?', '%s'), args)
+                affected = cur.rowcount
+            if not autocommit:
+                await conn.comit()
+        except BaseException:
+            if not autocommit:
+                await conn.rollback()
             raise
+        finally:
+            conn.close()
         return affected
 
+
+#
+# @asyncio.coroutine
+# def execute(sql, args, autocommit=True):
+#     log(sql)
+#     with (yield from __pool) as conn:
+#         if not autocommit:
+#             yield from conn.begin()
+#         try:
+#             with (yield from conn.cursor(aiomysql.DictCursor)) as cur:
+#                 yield from cur.execute(sql.replace('?', '%s'), args)
+#                 affected = cur.rowcount
+#             if not autocommit:
+#                 yield from conn.comit()
+#         except BaseException:
+#             if not autocommit:
+#                 yield from conn.rollback()
+#             raise
+#         finally:
+#             conn.close()
+#         return affected
 
 # execute()函数和select()函数所不同的是，cursor对象不返回结果集，而是通过rowcount返回结果数
 
