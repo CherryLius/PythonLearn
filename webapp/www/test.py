@@ -8,6 +8,10 @@ def test(loop):
     yield from create_pool(loop, user='www-data', password='www-data', db='awesome')
     u = User(name='Test', email='test@example.com', passwd='1234567890', image='about:blank')
     yield from u.save()
+    u = User(name='Tom', email='tom@example.com', passwd='1234567890', image='about:blank')
+    yield from u.save()
+    u = User(name='Jackie', email='jackie@example.com', passwd='1234567890', image='about:blank')
+    yield from u.save()
 
 
 loop = asyncio.get_event_loop()
