@@ -1,10 +1,16 @@
 ' url handlers '
-import asyncio, time, re, hashlib, json
+import asyncio
+import hashlib
+import json
+import re
+import time
+
 from aiohttp import web
-from webapp.www.coroweb import get, post
-from webapp.www.models import User, Blog, next_id
+
 from webapp.www.apis import APIError, APIValueError
 from webapp.www.config import configs
+from webapp.www.coroweb import get, post
+from webapp.www.models import User, Blog, next_id
 
 COOKIE_NAME = 'awesession'
 _COOKIE_KEY = configs.session.secret
@@ -54,7 +60,7 @@ _RE_EMAIL = re.compile(r'^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]{1,4}$)')
 _RE_SHA1 = re.compile(r'^[0-9a-f]{40}$')
 
 
-@post('api/users')
+@post('/api/users')
 def api_register_user(*, email, name, passwd):
     if not name or not name.strip():
         raise APIValueError('name')
@@ -77,3 +83,17 @@ def api_register_user(*, email, name, passwd):
     r.content_type = 'application/json'
     r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
     return r
+
+
+@get('/register')
+def register():
+    return {
+        '__template__': 'register.html'
+    }
+
+
+@get('/signin')
+def signin():
+    return {
+        '__template__': 'signin.html'
+    }
