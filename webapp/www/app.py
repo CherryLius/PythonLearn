@@ -19,7 +19,7 @@ def index(request):
 async def logger_factory(app, handler):
     async def logger(request):
         logging.info('Request: %s %s' % (request.method, request.path))
-        return (await handler(request))
+        return await handler(request)
 
     return logger
 
@@ -31,6 +31,7 @@ async def auth_factory(app, handler):
         cookie_str = request.cookies.get(COOKIE_NAME)
         if cookie_str:
             user = await cookie2user(cookie_str)
+            print('[auth_factory] user=%s' % user)
             if user:
                 logging.info('set current user: %s' % user.email)
                 request.__user__ = user
