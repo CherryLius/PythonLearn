@@ -23,7 +23,7 @@ def user2cookie(user, max_age):
     Generate cookie str by user.
     '''
     # build cookie string by: id_expires-sha1
-    expires = str(int(time.time()) + max_age)
+    expires = str(int(time.time() + max_age))
     s = '%s-%s-%s-%s' % (user.id, user.passwd, expires, _COOKIE_KEY)
     L = [user.id, expires, hashlib.sha1(s.encode('utf-8')).hexdigest()]
     return '-'.join(L)
@@ -32,7 +32,7 @@ def user2cookie(user, max_age):
 @asyncio.coroutine
 def cookie2user(cookie_str):
     '''
-    Parse cookie and load user if cookid is valid
+    Parse cookie and load user if cookie is valid
     :param cookie_str:
     :return:
     '''
@@ -109,7 +109,7 @@ def api_get_users(*, page='1'):
     return dict(page=p, users=users)
 
 
-_RE_EMAIL = re.compile(r'^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]{1,4}$)')
+_RE_EMAIL = re.compile(r'^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]+){1,4}$')
 _RE_SHA1 = re.compile(r'^[0-9a-f]{40}$')
 
 
@@ -127,7 +127,7 @@ def api_register_user(*, email, name, passwd):
     uid = next_id()
     sha1_passwd = '%s:%s' % (uid, passwd)
     user = User(id=uid, name=name.strip(), email=email, passwd=hashlib.sha1(sha1_passwd.encode('utf-8')).hexdigest(),
-                image='http://www.gravatar.com/avatar/%s?d=mm&s=120' % hashlib.sha1(email.encode('utf-8')).hexdigest())
+                image='http://www.gravatar.com/avatar/%s?d=mm&s=120' % hashlib.md5(email.encode('utf-8')).hexdigest())
     yield from user.save()
     # make session cookie:
     r = web.Response()
@@ -245,7 +245,7 @@ def api_update_blog(id, request, *, name, summary, content):
 
 
 @post('/api/blogs/{id}/delete')
-def api_delete_blogs(request, *, id):
+def api_delete_blog(request, *, id):
     check_admin(request)
     blog = yield from Blog.find(id)
     if blog is None:
