@@ -6,10 +6,10 @@ format_git_url = '%s:{}.git' % git_url
 
 
 def clone_from_git(project_name):
-    new_name = input('Input a new project name. Default is %s' % project_name)
-    _name = project_name if not new_name else new_name
-    print('new_name=%s. final name=%s. project name=%s' % (new_name, _name, project_name))
-    _command = 'git clone %s' % format_git_url.format(_name)
+    _name = input('Input a new project name. Default is %s: ' % project_name)
+    print('new_name=%s. project name=%s' % (_name, project_name))
+    clone_cmd = 'git clone %s' % format_git_url.format(project_name)
+    _command = clone_cmd if not _name else ' '.join([clone_cmd, _name])
     print(os.popen(_command).read())
 
 
