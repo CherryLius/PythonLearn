@@ -14,11 +14,11 @@ def clone_from_git(project_name):
 
 
 ret = os.popen(cmd).read()
-print('ret=%s' % ret)
 none_empty_list = filter(lambda x: x and '\t' in x, ret.split('\n'))
 project_list = list(map(lambda x: x.split('\t')[1], none_empty_list))
+print('There is [%d] projects at git [%s]' % (len(project_list), git_url))
 if len(project_list):
-    project_list.append('All Projects.')
+    project_list.append('** All Projects.** ')
 print('all projects at server %s:\n' % git_url)
 for i in range(len(project_list)):
     print('%d.\t%s' % (i, project_list[i]))

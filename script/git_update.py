@@ -3,7 +3,8 @@ git checkout branch-name
 git pull
 
 Usage:
-    py_git_update.py (--checkout | --update) <branchName>...
+    git_update.py (--checkout | --update) <branchName>...
+    git_update.py <branchName>...
 
 Options:
     -h --help     help
@@ -29,8 +30,8 @@ main_dir = os.getcwd()
 child_files = os.listdir(main_dir)
 for file in child_files:
     workspace = os.path.join(main_dir, file)
-    is_git = os.path.join(workspace, '.git')
-    if os.path.isfile(workspace) or not os.path.exists(is_git):
+    path_git = os.path.join(workspace, '.git')
+    if os.path.isfile(workspace) or not os.path.exists(path_git):
         print('skip [%s]\n' % workspace)
         continue
     os.chdir(workspace)
@@ -41,11 +42,11 @@ for file in child_files:
     is_same_branch = branch == current_branch
     if not is_same_branch:
         print(checkout_branch(branch))
-    if arguments['--update']:
+    if not arguments['--checkout']:
         print('execute cmd [git pull]')
         output_cmd = os.popen('git pull')
         print(output_cmd.read())
-        if not is_same_branch:
+        if not is_same_branch and arguments['--update']:
             print(checkout_branch(current_branch))
 
 print('git update complete!')
